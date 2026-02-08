@@ -2,7 +2,63 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { USER_ROLE } from "../constants/enums";
+import { DEPARTMENTS, USER_ROLE } from "../constants/enums.js";
+import {
+  PERMISSIONS,
+  computeUserPermissions,
+  JOB_TITLE_BUNDLES,
+} from "../acl/index.js";
+
+// Define a reusable address subdocument
+const AddressSchema = new mongoose.Schema(
+  {
+    street: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    zip: { type: String, trim: true },
+    country: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+// Role-specific embedded profiles (no separate _id)
+const DriverProfileSchema = new mongoose.Schema(
+  {
+    licenseNumber: { type: String, trim: true },
+    licenseExpiry: { type: Date },
+    iqamaNumber: { type: String, trim: true },
+    emergencyContact: { type: String, trim: true },
+    badgeId: { type: String, trim: true },
+    // Optional nested address for drivers
+    address: { type: AddressSchema, default: undefined },
+  },
+  { _id: false }
+);
+
+const EmployeeProfileSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, trim: true },
+    title: { type: String, trim: true },
+    managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    emergencyContact: { type: String, trim: true },
+    // Optional nested address for employees
+    address: { type: AddressSchema, default: undefined },
+  },
+  { _id: false }
+);
+
+const ContractorProfileSchema = new mongoose.Schema(
+  {
+    companyName: { type: String, trim: true },
+    contractId: { type: String, trim: true },
+    contractStart: { type: Date },
+    contractEnd: { type: Date },
+    contactPhone: { type: String, trim: true },
+    // Optional nested address for contractors
+    address: { type: AddressSchema, default: undefined },
+  },
+  { _id: false }
+);
 
 const userSchema = new mongoose.Schema(
   {
@@ -12,6 +68,9 @@ const userSchema = new mongoose.Schema(
       trim: true,
       maxlength: [50, "Name cannot be more than 50 characters"],
     },
+    phone: { type: String, trim: true },
+    // Root-level address for the user
+    address: { type: AddressSchema, default: undefined },
     email: {
       type: String,
       required: [true, "Please provide an email"],
@@ -33,11 +92,34 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(USER_ROLE),
       default: USER_ROLE.USER,
     },
+    // High-level user type for profile selection
+    userType: {
+      type: String,
+      enum: ["driver", "employee", "contractor"],
+      required: true,
+      index: true,
+    },
+    isSeasonal: { type: Boolean, default: false, index: true },
+    permissions: {
+      type: [String],
+      default: [], // e.g. ["inspection.create_request", "bus.view"]
+    },
     department: {
       type: String,
-      enum: ["bus_management", "bus_transport"],
+      enum: Object.values(DEPARTMENTS),
       required: [true, "Please specify a department"],
     },
+    // Business position / job title (data_entry, gov_insurance_manager, etc.)
+    jobTitle: {
+      type: String,
+      enum: Object.keys(JOB_TITLE_BUNDLES),
+      required: [true, "Please specify a valid job title"],
+      trim: true,
+    },
+    // Role-specific embedded profiles
+    driverProfile: { type: DriverProfileSchema, default: undefined },
+    employeeProfile: { type: EmployeeProfileSchema, default: undefined },
+    contractorProfile: { type: ContractorProfileSchema, default: undefined },
     isActive: {
       type: Boolean,
       default: true,
@@ -53,6 +135,7 @@ const userSchema = new mongoose.Schema(
     resetPasswordCode: String,
     resetPasswordCodeExpire: Date,
     lastLogin: Date,
+    lastPasswordChange: Date,
     createdBy: {
       type: mongoose.Schema.ObjectId,
       ref: "User",
@@ -67,17 +150,26 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ email: 1 });
 userSchema.index({ department: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ jobTitle: 1 });
+userSchema.index({ userType: 1 });
+userSchema.index({ isSeasonal: 1 });
 
 // Encrypt password using bcrypt
 userSchema.pre("save", async function (next) {
-  // Only run this function if password was actually modified
+  // Only run this if password was modified (or new)
   if (!this.isModified("password")) {
-    next();
+    console.log("⚪ Password not modified — skipping hashing");
+    return next();
   }
 
-  // Hash the password with cost of 12
+  console.log("🔸 Original password (plain):", this.password);
+
+  // Hash the password
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
+
+  console.log("✅ Hashed password:", this.password);
+
   next();
 });
 
@@ -153,6 +245,18 @@ userSchema.methods.getEmailVerificationToken = function () {
 userSchema.methods.updateLastLogin = function () {
   this.lastLogin = new Date();
   return this.save({ validateBeforeSave: false });
+};
+
+// Effective permissions helpers
+userSchema.methods.getEffectivePermissions = function () {
+  return computeUserPermissions(this);
+};
+
+userSchema.methods.hasPermission = function (perm) {
+  const perms = this.getEffectivePermissions();
+  // Role-based bypass: super_admin can do anything
+  if (this.role === "super_admin") return true;
+  return perms.includes(perm);
 };
 
 export default mongoose.model("User", userSchema);

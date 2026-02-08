@@ -1,8 +1,5 @@
 export const USER_ROLE = {
-  GUEST: "guest",
-  USER: "user",
-  TECHNICIAN: "technician",
-  SUPERVISOR: "supervisor",
+  STAFF: "staff",
   MANAGER: "manager",
   ADMIN: "admin",
   SUPER_ADMIN: "super_admin",
@@ -19,11 +16,13 @@ export const DEPARTMENTS = {
 };
 
 export const BUS_FEATURES = {
-  AC: "ac",
-  WIFI: "wifi",
-  USB_PORTS: "usb_ports",
-  WHEELCHAIR: "wheelchair",
-  CCTV: "cctv",
-  CHILD_BUTTON: "child_button",
+  AC: "AIR_CONDITIONING",
+  WIFI: "WIFI",
+  USB_PORTS: "USB_PORTS",
+  WHEELCHAIR: "WHEELCHAIR",
+  CCTV: "CCTV",
+  CHILD_BUTTON: "CHILD_BUTTON",
+  SEAT_BELT: "SEAT_BELT",
+  TOILET: "TOILET",
   // add more here...
 };

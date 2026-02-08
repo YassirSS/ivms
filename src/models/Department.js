@@ -1,7 +1,6 @@
 // models/Department.js
 import mongoose from "mongoose";
-import { DEPARTMENTS } from "../constants/enums";
-import { USER_ROLE } from "../constants/enums";
+import { DEPARTMENTS, USER_ROLE } from "../constants/enums.js";
 
 const { MANAGER, EMPLOYEE } = USER_ROLE;
 
@@ -18,11 +17,23 @@ const departmentSchema = new mongoose.Schema(
       required: [true, "Please provide a department description"],
       maxlength: [500, "Description cannot be more than 500 characters"],
     },
+
+    createdBy: { type: mongoose.Schema.ObjectId, ref: "User", required: true },
+    lastUpdatedBy: { type: mongoose.Schema.ObjectId, ref: "User" },
     isActive: { type: Boolean, default: true },
     budget: { type: Number, default: 0, min: [0, "Budget cannot be negative"] },
     location: {
       type: String,
       maxlength: [100, "Location cannot be more than 100 characters"],
+    },
+    code: {
+      type: String,
+      required: [true, "Please provide a department code"],
+      unique: true,
+      uppercase: true,
+      trim: true,
+      minlength: [2, "Code must be at least 2 characters"],
+      maxlength: [10, "Code cannot be more than 10 characters"],
     },
     contactInfo: {
       phone: {

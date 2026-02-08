@@ -113,6 +113,15 @@ export const getBus = async (req, res) => {
   }
 };
 
+// after validationResult check, before any DB access
+if (!req.user || !req.user._id) {
+  return res.status(401).json({
+    success: false,
+    error:
+      "Not authenticated — req.user is missing. Is the protect middleware attached?",
+  });
+}
+
 // @desc    Create new bus
 // @route   POST /api/buses
 // @access  Private (Manager only)
@@ -241,14 +250,41 @@ export const createBus = async (req, res) => {
   } catch (error) {
     console.error("Error creating bus:", error);
 
-    if (error.code === 11000) {
+    if (error.name === "ValidationError") {
+      const details = Object.values(error.errors || {}).map((e) => e.message);
       return res.status(400).json({
         success: false,
-        error: "Bus with this plate number already exists",
+        error: "Validation failed",
+        details,
       });
     }
 
-    res.status(500).json({
+    // Unique index collisions safety-net
+    if (error.code === 11000) {
+      const fields = Object.keys(error.keyPattern || {});
+      const msg = fields.includes("plateNumber")
+        ? "Plate number already exists"
+        : fields.includes("fleetNumber")
+        ? "Fleet number already exists"
+        : fields.includes("chassisNumber")
+        ? "Chassis number already exists"
+        : fields.includes("engineNumber")
+        ? "Engine number already exists"
+        : "Duplicate value";
+      return res.status(400).json({ success: false, error: msg });
+    }
+
+    // Auth guard (createdBy access)
+    if (
+      error.message?.includes("Cannot read") &&
+      String(error.message).includes("req.user")
+    ) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Not authenticated" });
+    }
+
+    return res.status(500).json({
       success: false,
       error: "Server error while creating bus",
     });

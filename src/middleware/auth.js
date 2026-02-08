@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { PERMISSIONS } from "../config/acl.js";
 
 // Protect routes - verify JWT token
 export const protect = async (req, res, next) => {
@@ -74,6 +75,38 @@ export const authorize = (...roles) => {
       return res.status(403).json({
         success: false,
         message: `User role ${req.user.role} is not authorized to access this route`,
+      });
+    }
+    next();
+  };
+};
+
+export const authorizePermissions = (...perms) => {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Super admin bypass only
+    if (user.role === "super_admin") {
+      return next();
+    }
+
+    const effective =
+      typeof user.getEffectivePermissions === "function"
+        ? user.getEffectivePermissions()
+        : Array.isArray(user.permissions)
+        ? user.permissions
+        : [];
+
+    const effectiveSet = new Set(effective);
+    const allowed = perms.every((perm) => effectiveSet.has(perm));
+
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: `Insufficient permissions. Required: ${perms.join(", ")}`,
       });
     }
     next();

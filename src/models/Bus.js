@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { BUS_FEATURES, DEPARTMENTS } from "../constants/enums";
+import { BUS_FEATURES, DEPARTMENTS } from "../constants/enums.js";
 
 const busSchema = new mongoose.Schema(
   {
@@ -133,6 +133,26 @@ const busSchema = new mongoose.Schema(
         message: "Insurance expiry date is not valid.",
       },
     },
+    inspectionExpiry: {
+      type: Date,
+      required: true,
+      validate: {
+        validator(value) {
+          return value > new Date("2000-01-01");
+        },
+        message: "Inspection expiry date is not valid.",
+      },
+    },
+    registrationStatus: {
+      type: String,
+      enum: ["ok", "nearEnd", "expired"],
+      default: undefined, // let cron set it; UI will fallback
+    },
+    inspectionStatus: {
+      type: String,
+      enum: ["ok", "nearEnd", "expired"],
+      default: undefined,
+    },
     driver: {
       type: mongoose.Schema.ObjectId,
       ref: "User",
@@ -179,6 +199,13 @@ busSchema.virtual("registrationDaysLeft").get(function () {
 busSchema.virtual("insuranceDaysLeft").get(function () {
   if (!this.insuranceExpiry) return null;
   return Math.ceil((this.insuranceExpiry - Date.now()) / (1000 * 60 * 60 * 24));
+});
+
+busSchema.virtual("inspectionDaysLeft").get(function () {
+  if (!this.inspectionExpiry) return null;
+  return Math.ceil(
+    (this.inspectionExpiry - Date.now()) / (1000 * 60 * 60 * 24)
+  );
 });
 
 // Method to assign driver

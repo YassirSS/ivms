@@ -18,7 +18,6 @@ const DepartmentMemberSchema = new Schema(
       required: true,
       index: true,
     },
-
     role: {
       type: String,
       enum: Object.values(USER_ROLE),

@@ -17,6 +17,7 @@ import authRoutes from "./src/routes/auth.js";
 import busRoutes from "./src/routes/busRoutes.js";
 import departmentRoutes from "./src/routes/departmentRoutes.js";
 import userRoutes from "./src/routes/userRoutes.js";
+import aclRoutes from "./src/routes/aclRoutes.js";
 
 // Import middleware
 import errorHandler from "./src/middleware/errorHandler.js";
@@ -72,6 +73,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/buses", busRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/acl", aclRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

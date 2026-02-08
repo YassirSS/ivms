@@ -1,5 +1,5 @@
 import { body, param, query } from "express-validator";
-import { DEPARTMENTS } from "../constants/enums";
+import { DEPARTMENTS, BUS_FEATURES } from "../constants/enums.js";
 
 // Validation for creating a new bus
 export const validateCreateBus = [
@@ -263,7 +263,7 @@ export const validateBusQuery = [
 
   query("department")
     .optional()
-    .isIn(["bus_management", "bus_transport"])
+    .isIn(Object.values(DEPARTMENTS))
     .withMessage("Invalid department filter"),
 
   query("search")
